@@ -1,0 +1,141 @@
+%% ================================================
+%% UNIFIED MERMAID WORKSPACE FOR FERMENTATION PROCESS
+%% ================================================
+
+%% ------------------------------------------------
+%% SECTION 1: PFD (PROCESS FLOW DIAGRAM)
+%% ------------------------------------------------
+flowchart TD
+
+    %% VESSELS
+    A[Glycerol Tank 2 KL<br>(SS316L, Jacketed)]
+    B[Methanol Tank 5 KL<br>(SS316L, Flameproof, N₂ Blanketed)]
+    C[Ammonia Vessel 2 KL<br>(CS + PTFE Lined)]
+    D[Seed Fermenter 50 L<br>(SS316L, Agitated, Aerated)]
+    E[Seed Fermenter 2 KL<br>(SS316L, Agitated, Aerated)]
+    F[Production Fermenter 20 KL<br>(SS316L, Agitated, Aerated, Jacketed)]
+    G[Harvest Tank<br>(SS316L)]
+    H[CIP/SIP System]
+    I[PLC/Automation Panel]
+
+    %% FLOWS
+    A -->|Growth Feed| D
+    D -->|Transfer| E
+    E -->|Transfer| F
+    A -->|Feed| F
+    C -->|NH₃ for pH control| D
+    C -->|NH₃ for pH control| E
+    C -->|NH₃ for pH control| F
+    B -->|Methanol feed (Induction)| F
+    F -->|Harvest Broth| G
+    H -->|CIP/SIP| D
+    H -->|CIP/SIP| E
+    H -->|CIP/SIP| F
+    I -->|Control signals| A
+    I -->|Control signals| B
+    I -->|Control signals| F
+
+    style A fill:#d1e8ff,stroke:#004f9e
+    style B fill:#ffe2e2,stroke:#990000
+    style C fill:#e2ffe2,stroke:#007000
+    style D fill:#fafafa,stroke:#555
+    style E fill:#fafafa,stroke:#555
+    style F fill:#fafafa,stroke:#555
+    style G fill:#fff7cc,stroke:#a67c00
+    style H fill:#e6ccff,stroke:#4b0082
+    style I fill:#cce5ff,stroke:#004080
+
+%% ------------------------------------------------
+%% SECTION 2: SEQUENCE DIAGRAM (BATCH & STERILIZATION LOGIC)
+%% ------------------------------------------------
+---
+sequenceDiagram
+    participant GLY as Glycerol Tank
+    participant MET as Methanol Tank
+    participant AMM as Ammonia Vessel
+    participant F50 as Seed Fermenter (50 L)
+    participant F2K as Seed Fermenter (2 KL)
+    participant F20K as Production Fermenter (20 KL)
+    participant CIP as CIP/SIP System
+    participant PLC as Automation System
+
+    Note over PLC,CIP: Phase 1 - ESIP (Equipment Sterilization)
+    PLC->>CIP: Start sterilization sequence
+    CIP->>GLY: Steam @121°C
+    CIP->>MET: Steam + N₂ vent
+    CIP->>AMM: Steam + Scrubber vent
+
+    Note over PLC,F50: Phase 2 - SIP (Media Sterilization)
+    GLY->>F50: Add carbon feed
+    AMM->>F50: Add ammonia
+    CIP->>F50: Steam sterilize media
+
+    Note over F50,F2K: Phase 3 - Seed Train
+    F50-->>F2K: Sterile transfer
+    CIP->>F2K: FSIP (Final SIP)
+    AMM->>F2K: pH control
+
+    Note over F2K,F20K: Phase 4 - Production Fermentation
+    F2K-->>F20K: Transfer inoculum
+    GLY->>F20K: Fed-batch feed
+    AMM->>F20K: pH control loop
+    MET->>F20K: Methanol induction
+    PLC->>F20K: DO, pH, Temp control
+
+    Note over F20K,CIP: Phase 5 - CIP + FSIP
+    F20K-->>CIP: Start CIP
+    CIP->>F50: Clean
+    CIP->>F2K: Clean
+    CIP->>F20K: FSIP before next batch
+
+%% ------------------------------------------------
+%% SECTION 3: CLASS DIAGRAM (EQUIPMENT HIERARCHY)
+%% ------------------------------------------------
+---
+classDiagram
+    class Tank {
+        +Material: SS316L / CS-Lined
+        +Capacity: variable
+        +Instrumentation: Level, Pressure, Temp
+        +Agitation: Yes/No
+        +Control: PLC Interfaced
+    }
+
+    class Fermenter {
+        +Type: Seed / Production
+        +Capacity: 50L / 2KL / 20KL
+        +Jacket: Steam / Cooling
+        +Agitation: Variable RPM
+        +Sensors: pH, DO, Temp
+        +ControlMode: PID + Cascade
+    }
+
+    class FeedTank {
+        +Type: Glycerol / Methanol / Ammonia
+        +Capacity: 2KL - 5KL
+        +SpecialFeature: Flameproof / Pressure Rated
+        +FeedType: Continuous / Pulsed
+    }
+
+    class CIPSystem {
+        +Function: Cleaning, Sterilization
+        +Modes: CIP / SIP / ESIP / FSIP
+        +Media: Caustic, Hot Water, Steam
+    }
+
+    class Automation {
+        +Controller: PLC
+        +HMI: SCADA Panel
+        +Functions: Interlocks, Alarms, PID Loops
+        +DataLogging: Yes
+    }
+
+    %% RELATIONSHIPS
+    Tank <|-- FeedTank
+    Tank <|-- Fermenter
+    Tank <|-- CIPSystem
+    Fermenter --> Automation : Controlled By
+    FeedTank --> Fermenter : Feeds Carbon / Nitrogen / Inducer
+    CIPSystem --> Fermenter : Cleans & Sterilizes
+    CIPSystem --> FeedTank : CIP Rinse Lines
+    Automation --> CIPSystem : Runs Sequences
